@@ -37,6 +37,8 @@ pub fn save_settings(
     new_settings: settings::Settings,
 ) -> Result<(), String> {
     settings::save(&new_settings).map_err(|e| e.to_string())?;
+    let auto_record = new_settings.auto_record;
     *state.settings.lock().unwrap() = new_settings;
+    state.session_manager.lock().unwrap().set_auto_record(auto_record);
     Ok(())
 }

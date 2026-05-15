@@ -19,6 +19,10 @@ impl SessionManager {
         self.active_id
     }
 
+    pub fn set_auto_record(&mut self, v: bool) {
+        self.auto_record = v;
+    }
+
     pub fn set_active_id(&mut self, id: Option<i64>) {
         self.active_id = id;
         if id.is_none() {

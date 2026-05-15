@@ -50,7 +50,7 @@
   .status { display: flex; align-items: center; gap: 0.4rem; }
   .dot {
     width: 8px; height: 8px; border-radius: 50%;
-    background: #444;
+    background: #ef4444;
     transition: background 0.3s;
   }
   .dot.live { background: #22c55e; box-shadow: 0 0 6px #22c55e; }

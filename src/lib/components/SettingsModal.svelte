@@ -25,6 +25,7 @@
       <label>
         UDP Port
         <input type="number" bind:value={draft.port} min="1024" max="65535" />
+        <span class="hint">Port changes take effect after restarting the app.</span>
       </label>
 
       <label>
@@ -80,4 +81,5 @@
   }
   button.primary { background: #2563eb; border-color: #2563eb; color: white; }
   button:hover { filter: brightness(1.2); }
+  .hint { font-size: 0.7rem; color: #6b7280; margin-top: 0.15rem; }
 </style>

@@ -6,7 +6,7 @@
   import uPlot from 'uplot';
   import 'uplot/dist/uPlot.min.css';
 
-  let { onClose }: { onClose: () => void } = $props();
+  let { onClose, useMph = true }: { onClose: () => void; useMph: boolean } = $props();
 
   let selectedSession = $state<SessionRow | null>(null);
   let chartEl = $state<HTMLDivElement | null>(null);
@@ -39,8 +39,10 @@
     const packets: TelemetryPacket[] = await loadSessionPackets(session.id);
     if (packets.length === 0 || !chartEl) return;
 
+    const speedFactor = useMph ? 2.23694 : 3.6;
+    const speedLabel = useMph ? 'Speed (mph)' : 'Speed (kph)';
     const times = packets.map((_, i) => i / 60);
-    const speeds = packets.map(p => p.speedMs * 2.23694);
+    const speeds = packets.map(p => p.speedMs * speedFactor);
     const throttles = packets.map(p => (p.throttle / 255) * 100);
     const brakes = packets.map(p => (p.brake / 255) * 100);
     const rpms = packets.map(p =>
@@ -52,7 +54,7 @@
       height: 200,
       series: [
         {},
-        { label: 'Speed (mph)', stroke: '#3b82f6', width: 1.5 },
+        { label: speedLabel, stroke: '#3b82f6', width: 1.5 },
         { label: 'Throttle %', stroke: '#22c55e', width: 1 },
         { label: 'Brake %', stroke: '#ef4444', width: 1 },
         { label: 'RPM %', stroke: '#a855f7', width: 1 },
