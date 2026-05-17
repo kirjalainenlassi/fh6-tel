@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getVersion } from '@tauri-apps/api/app';
   import { isConnected, displayPacket } from '$lib/stores/telemetry';
   import { carName } from '$lib/car-name';
   import { CAR_CLASS_LABELS, DRIVETRAIN_LABELS } from '$lib/types';
@@ -18,6 +19,8 @@
   let driveLabel = $derived(pkt ? (DRIVETRAIN_LABELS[pkt.drivetrainType] ?? '?') : '—');
 
   let copied = $state(false);
+  let version = $state('');
+  getVersion().then(v => { version = v; });
 
   async function copyOrdinal() {
     if (!pkt || !isUnknown) return;
@@ -51,6 +54,7 @@
   <div class="controls">
     <button class="icon-btn" onclick={onSessions} title="Sessions">⏱</button>
     <button class="icon-btn" onclick={onSettings} title="Settings">⚙</button>
+    {#if version}<span class="version">v{version}</span>{/if}
   </div>
 </header>
 
@@ -103,7 +107,8 @@
   .class-badge[data-class="B"]  { color: #3b82f6; border-color: #1e3a5f; }
   .class-badge[data-class="C"]  { color: #a855f7; border-color: #4c1d95; }
   .class-badge[data-class="D"]  { color: var(--tx-lo); border-color: var(--bd-subtle); }
-  .controls { display: flex; gap: 0.25rem; }
+  .controls { display: flex; align-items: center; gap: 0.25rem; }
+  .version { font-size: 0.6rem; color: var(--tx-xdim); letter-spacing: 0.03em; padding: 0 0.1rem; }
   .icon-btn {
     background: none; border: none; cursor: pointer;
     font-size: 1rem; color: var(--tx-dim); padding: 0.25rem 0.5rem;
