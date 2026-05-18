@@ -8,7 +8,16 @@
 
 Real-time telemetry dashboard for Forza Horizon 6. Displays speed, RPM, heading, attitude, tire temps, driver inputs, and lap times. Records sessions to SQLite for later review.
 
-<img width="2157" height="1347" alt="image" src="https://github.com/user-attachments/assets/147e41ca-de56-4dcf-8d05-261685ca3ed3" />
+### Realtime Dashboard
+<img width="1919" height="1054" alt="image" src="https://github.com/user-attachments/assets/2e4e2367-c6cc-43be-a97a-4565d0f057c0" />
+
+### Auto Recorded Session Management (timed events)
+<img width="333" height="295" alt="image" src="https://github.com/user-attachments/assets/f904c7e5-028d-40c4-bac0-cf7f06766cc8" /><img width="320" height="285" alt="image" src="https://github.com/user-attachments/assets/0de3029c-9cdc-430d-86dd-46bd4c1f91cb" />
+
+### Session Replay
+<img width="1919" height="1054" alt="image" src="https://github.com/user-attachments/assets/830d8d19-2af2-4dee-bdd1-4a3507a417e0" />
+
+
 
 ## Install
 
