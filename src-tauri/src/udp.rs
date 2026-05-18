@@ -66,7 +66,10 @@ pub async fn run(app: AppHandle, port: u16) {
         // and Time Trial (race_position 0 but the lap clock runs). Free-roam has
         // no lap timer so it stays unrecorded. Grace period stops pause-menu
         // packets from splitting a session.
-        let timed_lap = pkt.current_lap > 0.0 || pkt.last_lap > 0.0 || pkt.lap_number > 0;
+        // Only the live lap clock means "timing now". last_lap / lap_number
+        // persist as stale values from the previous race while you're in the
+        // pre-race / menu screen, which spuriously spawned tiny sessions.
+        let timed_lap = pkt.current_lap > 0.0;
         let raw_in_event = pkt.is_race_on && (pkt.race_position > 0 || timed_lap);
         if raw_in_event {
             close_pending = 0;
@@ -102,59 +105,42 @@ fn handle_session(app: &AppHandle, state: &AppState, pkt: &parser::TelemetryPack
     // Apply event transition before inserting so the opening packet is captured
     let action = sm.on_race_on_change(prev_in_event, in_event, pkt.car_ordinal, pkt.car_class, pkt.car_pi);
 
-    match action {
-        SessionAction::Open { car_ordinal, car_class, car_pi } => {
-            // Check if the new stream looks like a rewind into the previous session:
-            // race time went backward within the rewind window.
-            if let Some(reopen_id) = sm.check_reopen(progress, now_ms) {
-                match db::reopen_session(&db, reopen_id) {
-                    Ok(()) => {
-                        sm.set_active_id(Some(reopen_id));
-                        println!("[session] rewind detected, continuing #{reopen_id}");
-                    }
-                    Err(e) => eprintln!("[session] reopen error: {e}"),
+    // Open/reopen first so the opening packet is captured below.
+    if let SessionAction::Open { car_ordinal, car_class, car_pi } = &action {
+        let (car_ordinal, car_class, car_pi) = (*car_ordinal, *car_class, *car_pi);
+        // Check if the new stream looks like a rewind into the previous
+        // session: race time went backward within the rewind window.
+        if let Some(reopen_id) = sm.check_reopen(progress, now_ms) {
+            match db::reopen_session(&db, reopen_id) {
+                Ok(()) => {
+                    sm.set_active_id(Some(reopen_id));
+                    println!("[session] rewind detected, continuing #{reopen_id}");
                 }
-            } else {
-                match db::open_session(&db, now_ms as i64, car_ordinal, car_class, car_pi) {
-                    Ok(id) => {
-                        sm.set_active_id(Some(id));
-                        println!("[session] opened #{id}");
-                    }
-                    Err(e) => {
-                        eprintln!("[session] open error: {e}");
-                        let _ = app.emit("session_error", format!("Failed to open session: {e}"));
-                    }
+                Err(e) => eprintln!("[session] reopen error: {e}"),
+            }
+        } else {
+            match db::open_session(&db, now_ms as i64, car_ordinal, car_class, car_pi) {
+                Ok(id) => {
+                    // Genuinely new race — reset all lap tracking. (A rewind
+                    // reopen above deliberately does NOT, to continue the run.)
+                    sm.begin_new_session();
+                    sm.set_active_id(Some(id));
+                    println!("[session] opened #{id}");
+                }
+                Err(e) => {
+                    eprintln!("[session] open error: {e}");
+                    let _ = app.emit("session_error", format!("Failed to open session: {e}"));
                 }
             }
         }
-        SessionAction::Close => {
-            if let Some(id) = sm.active_session_id() {
-                sm.note_close(now_ms);
-                // The lap in progress at session end never crossed the line —
-                // record it and let it count toward the best lap.
-                if let Some(lap) = sm.take_final_lap() {
-                    if let Err(e) = db::insert_lap(&db, id, lap.lap_number, lap.lap_time) {
-                        eprintln!("[session] final lap insert error: {e}");
-                    }
-                }
-                let best = sm.best_for_close();
-                if let Err(e) = db::close_session(&db, id, now_ms as i64, best) {
-                    eprintln!("[session] close error: {e}");
-                    let _ = app.emit("session_error", format!("Failed to close session: {e}"));
-                } else {
-                    println!("[session] closed #{id}");
-                }
-            }
-            sm.set_active_id(None);
-        }
-        SessionAction::None => {}
     }
 
+    // Record this packet while the session is still active.
     if let Some(session_id) = sm.active_session_id() {
-        sm.update_best_lap(pkt.best_lap);
+        // Best lap is derived only from laps we time ourselves — Forza's
+        // best_lap field carries stale/garbage values across sessions.
         sm.update_race_time(progress);
-        // Persist each lap as the lap counter advances.
-        if let Some(lap) = sm.note_tick(pkt.lap_number, pkt.current_lap, pkt.last_lap) {
+        if let Some(lap) = sm.note_tick(pkt.is_race_on, pkt.current_lap, pkt.current_race_time) {
             if let Err(e) = db::insert_lap(&db, session_id, lap.lap_number, lap.lap_time) {
                 eprintln!("[session] lap insert error: {e}");
             }
@@ -168,5 +154,43 @@ fn handle_session(app: &AppHandle, state: &AppState, pkt: &parser::TelemetryPack
         if pkt.car_ordinal != 0 {
             db::update_session_car_if_unknown(&db, session_id, pkt.car_ordinal, pkt.car_class, pkt.car_pi).ok();
         }
+    }
+
+    // Close after recording.
+    if matches!(action, SessionAction::Close) {
+        if let Some(id) = sm.active_session_id() {
+            sm.note_close(now_ms);
+            // The final lap ends with the race ending (no line-crossing
+            // reset), so record the in-progress lap here. Non-destructive: a
+            // rewind reopen continues the same lap and a later close overwrites
+            // this provisional value with the true (longer) one.
+            let final_lap = sm.finalize_final_lap();
+            if let Some(lap) = &final_lap {
+                if let Err(e) = db::insert_lap(&db, id, lap.lap_number, lap.lap_time) {
+                    eprintln!("[session] final lap insert error: {e}");
+                }
+            }
+            // Discard only a *tiny* lapless session (a pre-race / aborted
+            // fragment, ~10s). A longer lapless run is a real point-to-point
+            // / sprint race and must be kept. ~400 packets ≈ 10s.
+            if sm.laps_recorded() == 0 && final_lap.is_none() && sm.ticks() < 400 {
+                if let Err(e) = db::delete_session(&db, id) {
+                    eprintln!("[session] discard error: {e}");
+                } else {
+                    println!("[session] discarded empty session #{id}");
+                }
+            } else {
+                // Best is the fastest lap actually in the table (rewind
+                // upserts already corrected); -1.0 = none → keep existing.
+                let best = db::min_lap_time(&db, id).ok().flatten().unwrap_or(-1.0);
+                if let Err(e) = db::close_session(&db, id, now_ms as i64, best) {
+                    eprintln!("[session] close error: {e}");
+                    let _ = app.emit("session_error", format!("Failed to close session: {e}"));
+                } else {
+                    println!("[session] closed #{id}");
+                }
+            }
+        }
+        sm.set_active_id(None);
     }
 }

@@ -80,6 +80,16 @@ pub struct LapRow {
     pub lap_time: f32,
 }
 
+/// Fastest recorded lap for a session, or None if it has no laps. Derived from
+/// the lap table so it reflects rewind upserts/overwrites correctly.
+pub fn min_lap_time(conn: &Connection, session_id: i64) -> Result<Option<f32>> {
+    conn.query_row(
+        "SELECT MIN(lap_time) FROM session_laps WHERE session_id=?1",
+        [session_id],
+        |r| r.get::<_, Option<f32>>(0),
+    )
+}
+
 pub fn get_session_laps(conn: &Connection, session_id: i64) -> Result<Vec<LapRow>> {
     let mut stmt = conn.prepare(
         "SELECT lap_number, lap_time FROM session_laps
@@ -131,10 +141,13 @@ pub fn reopen_session(conn: &Connection, id: i64) -> Result<()> {
 }
 
 pub fn close_session(conn: &Connection, id: i64, ended_at: i64, best_lap: f32) -> Result<()> {
-    // Use MIN so a worse post-rewind lap never overwrites a better pre-rewind one.
+    // best_lap is the authoritative MIN of the session's lap table (computed by
+    // the caller), so the latest close is correct — including after a rewind
+    // overwrote a provisional partial with the true lap. <=0 means "no laps":
+    // keep whatever was there.
     conn.execute(
         "UPDATE sessions SET ended_at=?1,
-         best_lap = CASE WHEN ?2 > 0.0 AND (best_lap IS NULL OR ?2 < best_lap) THEN ?2 ELSE best_lap END
+         best_lap = CASE WHEN ?2 > 0.0 THEN ?2 ELSE best_lap END
          WHERE id=?3",
         rusqlite::params![ended_at, best_lap, id],
     )?;
@@ -284,17 +297,19 @@ mod tests {
     }
 
     #[test]
-    fn close_preserves_better_best_lap() {
+    fn close_records_caller_supplied_best() {
+        // best_lap is now the authoritative MIN of the lap table supplied by
+        // the caller, so the latest close with a real value wins (this is what
+        // corrects a provisional partial after a rewind).
         let conn = in_memory();
         let id = open_session(&conn, 0, 0, 0, 0).unwrap();
-        close_session(&conn, id, 100, 65.5).unwrap();
+        close_session(&conn, id, 100, 37.0).unwrap(); // provisional partial
         reopen_session(&conn, id).unwrap();
-        // Worse lap after rewind — existing best must be kept
-        close_session(&conn, id, 200, 70.0).unwrap();
+        close_session(&conn, id, 200, 54.0).unwrap(); // true min after upsert
         let best: Option<f32> = conn
             .query_row("SELECT best_lap FROM sessions WHERE id=?1", [id], |r| r.get(0))
             .unwrap();
-        assert_eq!(best, Some(65.5));
+        assert_eq!(best, Some(54.0));
     }
 
     #[test]
