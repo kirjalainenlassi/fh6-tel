@@ -100,6 +100,17 @@ npm run tauri build
 
 Installer output: `src-tauri/target/release/bundle/nsis/FH6 Telemetry_0.1.0_x64-setup.exe`
 
+## Running from Source
+
+Prerequisites: same as Building from Source.
+
+```bash
+npm install
+npm run tauri dev
+```
+
+Vite hot-reloads the Svelte frontend on save; Rust changes trigger a rebuild and relaunch of the app window.
+
 ## Releasing
 
 Releases are created via the **Release** GitHub Actions workflow:
