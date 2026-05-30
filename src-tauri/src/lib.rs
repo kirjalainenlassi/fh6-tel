@@ -4,6 +4,7 @@ pub mod parser;
 pub mod session;
 pub mod settings;
 pub mod udp;
+pub mod update;
 
 use session::SessionManager;
 use std::sync::Mutex;
@@ -38,6 +39,8 @@ pub fn run() {
             commands::set_session_bookmark,
             commands::get_settings,
             commands::save_settings,
+            update::check_for_update,
+            update::install_update,
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
