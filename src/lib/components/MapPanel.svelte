@@ -109,6 +109,7 @@
 
   onDestroy(() => {
     resizeObserver?.disconnect();
+    playerMarker?.remove();
     playerMarker = null;
     map?.remove();
     map = null;
@@ -122,7 +123,12 @@
     if (!map || !L || !polylineLayer || !markerLayer || !calib) return;
 
     const valid = points.filter((p) => p.positionX !== 0 || p.positionZ !== 0);
-    if (valid.length === 0) return;
+    if (valid.length === 0) {
+      polylineLayer.clearLayers();
+      playerMarker?.remove();
+      playerMarker = null;
+      return;
+    }
 
     if (drawLine && valid.length > 1) {
       polylineLayer.clearLayers();
@@ -178,6 +184,9 @@
       }
 
       if (fixedTrace && valid.length > 1) {
+        // Replay / recorded view: fit the whole track once, then lock the
+        // camera to that extent — the user may zoom in & pan, but can't zoom
+        // out past the full-track view or pan off the track.
         if (!boundsApplied) {
           const b = L.latLngBounds(valid.map((p) => pixToLatLng(worldToPix(p))));
           map.fitBounds(b, { padding: [20, 20], maxZoom: cfg.defaultZoom });
@@ -186,10 +195,12 @@
           boundsApplied = true;
         }
       } else if (drawLine && valid.length > 1) {
+        // Live recording: track grows, keep the whole thing framed.
         clearBounds();
         const b = L.latLngBounds(valid.map((p) => pixToLatLng(worldToPix(p))));
         map.fitBounds(b, { padding: [20, 20], maxZoom: cfg.defaultZoom });
       } else {
+        // Free-roam / live marker: follow the player at the user's current zoom.
         clearBounds();
         map.setView(ll, map.getZoom(), { animate: false });
       }
