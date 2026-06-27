@@ -44,11 +44,13 @@
         mapDefaultCenter: [0, 0] as [number, number],
         tiresVisible: true,
         upshiftBeepEnabled: false,
-        upshiftThreshold: 95,
-        upshiftRearm: 85,
+        upshiftPowerDropPct: 3,
+        upshiftMinThrottle: 90,
         upshiftFreq: 1800,
         upshiftDurationMs: 120,
         downshiftBeepEnabled: false,
+        downshiftLowRpmPct: 35,
+        downshiftMinThrottle: 50,
         downshiftFreq: 1200,
         downshiftDurationMs: 100,
         beepVolume: 0.8,
@@ -182,17 +184,19 @@
 
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={draft.upshiftBeepEnabled} />
-          Upshift beep
+          Upshift beep — fires when power drops from peak (past optimal shift point)
         </label>
         {#if draft.upshiftBeepEnabled}
           <div class="row2">
             <label>
-              Beep at RPM %
-              <input type="number" bind:value={draft.upshiftThreshold} min="50" max="100" />
+              Power drop trigger (%)
+              <input type="number" bind:value={draft.upshiftPowerDropPct} min="1" max="20" step="0.5" />
+              <span class="hint">Beep when power falls this % from rolling max. Lower = earlier beep.</span>
             </label>
             <label>
-              Re-arm at RPM %
-              <input type="number" bind:value={draft.upshiftRearm} min="40" max="99" />
+              Min throttle (%)
+              <input type="number" bind:value={draft.upshiftMinThrottle} min="50" max="100" />
+              <span class="hint">Only track power above this throttle.</span>
             </label>
           </div>
           <div class="row2">
@@ -206,9 +210,21 @@
 
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={draft.downshiftBeepEnabled} />
-          Downshift beep
+          Downshift reminder — fires when lugging (high throttle, RPM too low)
         </label>
         {#if draft.downshiftBeepEnabled}
+          <div class="row2">
+            <label>
+              Lugging RPM threshold (%)
+              <input type="number" bind:value={draft.downshiftLowRpmPct} min="10" max="60" />
+              <span class="hint">Beep when RPM is below this % of redline.</span>
+            </label>
+            <label>
+              Min throttle (%)
+              <input type="number" bind:value={draft.downshiftMinThrottle} min="10" max="100" />
+              <span class="hint">Only fire when throttle exceeds this.</span>
+            </label>
+          </div>
           <div class="row2">
             <label>Frequency (Hz) <input type="number" bind:value={draft.downshiftFreq} min="100" max="8000" /></label>
             <label>Duration (ms) <input type="number" bind:value={draft.downshiftDurationMs} min="10" max="1000" /></label>

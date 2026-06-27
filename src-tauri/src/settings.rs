@@ -51,18 +51,24 @@ pub struct Settings {
     pub tires_visible: bool,
 
     // ── Audio alerts ──────────────────────────────────────────────────────────
+    // Upshift: fires when power drops N% from rolling max at full throttle
     #[serde(default)]
     pub upshift_beep_enabled: bool,
-    #[serde(default = "Settings::default_upshift_threshold")]
-    pub upshift_threshold: f32,
-    #[serde(default = "Settings::default_upshift_rearm")]
-    pub upshift_rearm: f32,
+    #[serde(default = "Settings::default_upshift_power_drop_pct")]
+    pub upshift_power_drop_pct: f32,
+    #[serde(default = "Settings::default_upshift_min_throttle")]
+    pub upshift_min_throttle: f32,
     #[serde(default = "Settings::default_upshift_freq")]
     pub upshift_freq: f32,
     #[serde(default = "Settings::default_upshift_duration_ms")]
     pub upshift_duration_ms: f32,
+    // Downshift reminder: fires when lugging (high throttle, low RPM)
     #[serde(default)]
     pub downshift_beep_enabled: bool,
+    #[serde(default = "Settings::default_downshift_low_rpm_pct")]
+    pub downshift_low_rpm_pct: f32,
+    #[serde(default = "Settings::default_downshift_min_throttle")]
+    pub downshift_min_throttle: f32,
     #[serde(default = "Settings::default_downshift_freq")]
     pub downshift_freq: f32,
     #[serde(default = "Settings::default_downshift_duration_ms")]
@@ -76,10 +82,12 @@ impl Settings {
     fn default_map_max_zoom() -> i32 { 5 }
     fn default_map_tile_size() -> i32 { 256 }
     fn default_tires_visible() -> bool { true }
-    fn default_upshift_threshold() -> f32 { 95.0 }
-    fn default_upshift_rearm() -> f32 { 85.0 }
+    fn default_upshift_power_drop_pct() -> f32 { 3.0 }
+    fn default_upshift_min_throttle() -> f32 { 90.0 }
     fn default_upshift_freq() -> f32 { 1800.0 }
     fn default_upshift_duration_ms() -> f32 { 120.0 }
+    fn default_downshift_low_rpm_pct() -> f32 { 35.0 }
+    fn default_downshift_min_throttle() -> f32 { 50.0 }
     fn default_downshift_freq() -> f32 { 1200.0 }
     fn default_downshift_duration_ms() -> f32 { 100.0 }
     fn default_beep_volume() -> f32 { 0.8 }
@@ -110,11 +118,13 @@ impl Default for Settings {
             map_default_center: [0.0, 0.0],
             tires_visible: true,
             upshift_beep_enabled: false,
-            upshift_threshold: Self::default_upshift_threshold(),
-            upshift_rearm: Self::default_upshift_rearm(),
+            upshift_power_drop_pct: Self::default_upshift_power_drop_pct(),
+            upshift_min_throttle: Self::default_upshift_min_throttle(),
             upshift_freq: Self::default_upshift_freq(),
             upshift_duration_ms: Self::default_upshift_duration_ms(),
             downshift_beep_enabled: false,
+            downshift_low_rpm_pct: Self::default_downshift_low_rpm_pct(),
+            downshift_min_throttle: Self::default_downshift_min_throttle(),
             downshift_freq: Self::default_downshift_freq(),
             downshift_duration_ms: Self::default_downshift_duration_ms(),
             beep_volume: Self::default_beep_volume(),
@@ -190,8 +200,9 @@ mod tests {
         let s: Settings = serde_json::from_str(legacy).unwrap();
         assert!(!s.upshift_beep_enabled);
         assert!(!s.downshift_beep_enabled);
-        assert_eq!(s.upshift_threshold, 95.0);
-        assert_eq!(s.upshift_rearm, 85.0);
+        assert_eq!(s.upshift_power_drop_pct, 3.0);
+        assert_eq!(s.upshift_min_throttle, 90.0);
+        assert_eq!(s.downshift_low_rpm_pct, 35.0);
         assert_eq!(s.beep_volume, 0.8);
     }
 

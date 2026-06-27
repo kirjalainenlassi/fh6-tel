@@ -102,15 +102,19 @@ export interface AppSettings {
   tiresVisible: boolean;
 
   // ── Audio alerts ──────────────────────────────────────────────────────────
+  // Upshift: beeps when engine power drops N% from rolling max at full throttle
   upshiftBeepEnabled: boolean;
-  upshiftThreshold: number;   // % of max RPM (0–100), default 95
-  upshiftRearm: number;       // % of max RPM (0–100), default 85
-  upshiftFreq: number;        // Hz, default 1800
-  upshiftDurationMs: number;  // ms, default 120
+  upshiftPowerDropPct: number;  // % drop from rolling max power, default 3
+  upshiftMinThrottle: number;   // throttle % required to track power, default 90
+  upshiftFreq: number;          // Hz, default 1800
+  upshiftDurationMs: number;    // ms, default 120
+  // Downshift reminder: beeps when lugging (high throttle, low RPM for current gear)
   downshiftBeepEnabled: boolean;
-  downshiftFreq: number;      // Hz, default 1200
-  downshiftDurationMs: number; // ms, default 100
-  beepVolume: number;         // 0–1, default 0.8
+  downshiftLowRpmPct: number;   // RPM% below which "lugging" fires, default 35
+  downshiftMinThrottle: number; // min throttle % to detect lugging, default 50
+  downshiftFreq: number;        // Hz, default 1200
+  downshiftDurationMs: number;  // ms, default 100
+  beepVolume: number;           // 0–1, default 0.8
 }
 
 export type DrivetrainLabel = 'FWD' | 'RWD' | 'AWD';

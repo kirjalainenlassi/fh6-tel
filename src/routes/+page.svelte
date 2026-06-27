@@ -137,32 +137,59 @@
   });
 
   // ── Shift beeps ───────────────────────────────────────────────────────────
-  // Plain let (not $state) so reads/writes don't create reactive dependencies.
-  let upshiftArmed = true;
-  let prevGear = 0;
+  // Plain let (not $state) — reads/writes don't create reactive dependencies,
+  // so the effect only re-runs when displayPacket or rpmPercent changes.
+  let rollingMaxPower = 0;   // peak power seen in current gear at full throttle
+  let upshiftFired = false;  // true after beep fires; resets on new power peak
+  let upshiftGear = 0;       // gear when rolling max was last reset
+  let downshiftArmed = true; // re-arms when lugging condition clears
 
   $effect(() => {
     const p = $displayPacket;
     const rpm = $rpmPercent;
     if (!p || !p.isRaceOn || $replay.active) return;
 
-    if (s?.upshiftBeepEnabled) {
-      if (upshiftArmed && rpm >= s.upshiftThreshold) {
-        playBeep(s.upshiftFreq, s.upshiftDurationMs, s.beepVolume);
-        upshiftArmed = false;
-      } else if (!upshiftArmed && rpm < s.upshiftRearm) {
-        upshiftArmed = true;
+    const throttlePct = (p.throttle / 255) * 100;
+    const gear = p.gear;
+
+    // ── Upshift: beep when power drops from rolling max (past peak power) ──
+    if (s?.upshiftBeepEnabled && gear > 0) {
+      if (gear !== upshiftGear) {
+        // Gear changed — fresh power curve in the new gear
+        rollingMaxPower = 0;
+        upshiftFired = false;
+        upshiftGear = gear;
+      }
+
+      if (throttlePct >= s.upshiftMinThrottle && p.power > 0) {
+        if (p.power > rollingMaxPower) {
+          rollingMaxPower = p.power;
+          upshiftFired = false; // new peak — re-arm so we catch the next drop
+        } else if (!upshiftFired && rollingMaxPower > 0) {
+          const dropPct = ((rollingMaxPower - p.power) / rollingMaxPower) * 100;
+          if (dropPct >= s.upshiftPowerDropPct) {
+            playBeep(s.upshiftFreq, s.upshiftDurationMs, s.beepVolume);
+            upshiftFired = true;
+          }
+        }
+      } else {
+        // Throttle lifted or engine braking — reset for the next full-throttle run
+        rollingMaxPower = 0;
+        upshiftFired = false;
       }
     }
 
-    if (s?.downshiftBeepEnabled) {
-      const gear = p.gear;
-      if (gear < prevGear && gear > 0 && prevGear > 0) {
+    // ── Downshift reminder: beep when lugging (high throttle, RPM too low) ──
+    if (s?.downshiftBeepEnabled && gear > 1) {
+      const lugging = throttlePct >= s.downshiftMinThrottle && rpm < s.downshiftLowRpmPct;
+      if (lugging && downshiftArmed) {
         playBeep(s.downshiftFreq, s.downshiftDurationMs, s.beepVolume);
+        downshiftArmed = false;
+      } else if (!lugging) {
+        downshiftArmed = true;
       }
-      prevGear = gear;
     } else {
-      prevGear = p.gear;
+      downshiftArmed = true;
     }
   });
 </script>
