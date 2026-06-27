@@ -49,6 +49,26 @@ pub struct Settings {
     // ── Panel visibility ──────────────────────────────────────────────────────
     #[serde(default = "Settings::default_tires_visible")]
     pub tires_visible: bool,
+
+    // ── Audio alerts ──────────────────────────────────────────────────────────
+    #[serde(default)]
+    pub upshift_beep_enabled: bool,
+    #[serde(default = "Settings::default_upshift_threshold")]
+    pub upshift_threshold: f32,
+    #[serde(default = "Settings::default_upshift_rearm")]
+    pub upshift_rearm: f32,
+    #[serde(default = "Settings::default_upshift_freq")]
+    pub upshift_freq: f32,
+    #[serde(default = "Settings::default_upshift_duration_ms")]
+    pub upshift_duration_ms: f32,
+    #[serde(default)]
+    pub downshift_beep_enabled: bool,
+    #[serde(default = "Settings::default_downshift_freq")]
+    pub downshift_freq: f32,
+    #[serde(default = "Settings::default_downshift_duration_ms")]
+    pub downshift_duration_ms: f32,
+    #[serde(default = "Settings::default_beep_volume")]
+    pub beep_volume: f32,
 }
 
 impl Settings {
@@ -56,6 +76,13 @@ impl Settings {
     fn default_map_max_zoom() -> i32 { 5 }
     fn default_map_tile_size() -> i32 { 256 }
     fn default_tires_visible() -> bool { true }
+    fn default_upshift_threshold() -> f32 { 95.0 }
+    fn default_upshift_rearm() -> f32 { 85.0 }
+    fn default_upshift_freq() -> f32 { 1800.0 }
+    fn default_upshift_duration_ms() -> f32 { 120.0 }
+    fn default_downshift_freq() -> f32 { 1200.0 }
+    fn default_downshift_duration_ms() -> f32 { 100.0 }
+    fn default_beep_volume() -> f32 { 0.8 }
 }
 
 impl Default for Settings {
@@ -82,6 +109,15 @@ impl Default for Settings {
             map_default_zoom: 0,
             map_default_center: [0.0, 0.0],
             tires_visible: true,
+            upshift_beep_enabled: false,
+            upshift_threshold: Self::default_upshift_threshold(),
+            upshift_rearm: Self::default_upshift_rearm(),
+            upshift_freq: Self::default_upshift_freq(),
+            upshift_duration_ms: Self::default_upshift_duration_ms(),
+            downshift_beep_enabled: false,
+            downshift_freq: Self::default_downshift_freq(),
+            downshift_duration_ms: Self::default_downshift_duration_ms(),
+            beep_volume: Self::default_beep_volume(),
         }
     }
 }
@@ -145,6 +181,18 @@ mod tests {
             "tireTempOptimal":85.0,"tireTempHot":110.0,"autoRecord":true,"theme":"dark"}"#;
         let s: Settings = serde_json::from_str(legacy).unwrap();
         assert!(s.tires_visible);
+    }
+
+    #[test]
+    fn legacy_json_without_audio_fields_uses_defaults() {
+        let legacy = r#"{"port":20440,"useMph":true,"tireTempCold":60.0,
+            "tireTempOptimal":85.0,"tireTempHot":110.0,"autoRecord":true,"theme":"dark"}"#;
+        let s: Settings = serde_json::from_str(legacy).unwrap();
+        assert!(!s.upshift_beep_enabled);
+        assert!(!s.downshift_beep_enabled);
+        assert_eq!(s.upshift_threshold, 95.0);
+        assert_eq!(s.upshift_rearm, 85.0);
+        assert_eq!(s.beep_volume, 0.8);
     }
 
     #[test]

@@ -2,6 +2,7 @@
   import { settings, saveSettings } from '$lib/stores/sessions';
   import MapCalibrator from './MapCalibrator.svelte';
   import type { AppSettings } from '$lib/types';
+  import { playBeep } from '$lib/audio';
 
   let { onClose }: { onClose: () => void } = $props();
 
@@ -42,6 +43,15 @@
         mapDefaultZoom: 0,
         mapDefaultCenter: [0, 0] as [number, number],
         tiresVisible: true,
+        upshiftBeepEnabled: false,
+        upshiftThreshold: 95,
+        upshiftRearm: 85,
+        upshiftFreq: 1800,
+        upshiftDurationMs: 120,
+        downshiftBeepEnabled: false,
+        downshiftFreq: 1200,
+        downshiftDurationMs: 100,
+        beepVolume: 0.8,
       };
       draft = { ...mapDefaults, ...$settings };
     }
@@ -167,6 +177,55 @@
         {/if}
       </fieldset>
 
+      <fieldset>
+        <legend>Audio Alerts</legend>
+
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={draft.upshiftBeepEnabled} />
+          Upshift beep
+        </label>
+        {#if draft.upshiftBeepEnabled}
+          <div class="row2">
+            <label>
+              Beep at RPM %
+              <input type="number" bind:value={draft.upshiftThreshold} min="50" max="100" />
+            </label>
+            <label>
+              Re-arm at RPM %
+              <input type="number" bind:value={draft.upshiftRearm} min="40" max="99" />
+            </label>
+          </div>
+          <div class="row2">
+            <label>Frequency (Hz) <input type="number" bind:value={draft.upshiftFreq} min="100" max="8000" /></label>
+            <label>Duration (ms) <input type="number" bind:value={draft.upshiftDurationMs} min="10" max="1000" /></label>
+          </div>
+          <button class="test-btn" onclick={() => playBeep(draft!.upshiftFreq, draft!.upshiftDurationMs, draft!.beepVolume)}>
+            ▶ Test upshift beep
+          </button>
+        {/if}
+
+        <label class="checkbox-label">
+          <input type="checkbox" bind:checked={draft.downshiftBeepEnabled} />
+          Downshift beep
+        </label>
+        {#if draft.downshiftBeepEnabled}
+          <div class="row2">
+            <label>Frequency (Hz) <input type="number" bind:value={draft.downshiftFreq} min="100" max="8000" /></label>
+            <label>Duration (ms) <input type="number" bind:value={draft.downshiftDurationMs} min="10" max="1000" /></label>
+          </div>
+          <button class="test-btn" onclick={() => playBeep(draft!.downshiftFreq, draft!.downshiftDurationMs, draft!.beepVolume)}>
+            ▶ Test downshift beep
+          </button>
+        {/if}
+
+        {#if draft.upshiftBeepEnabled || draft.downshiftBeepEnabled}
+          <label>
+            Volume ({Math.round(draft.beepVolume * 100)}%)
+            <input type="range" bind:value={draft.beepVolume} min="0" max="1" step="0.05" />
+          </label>
+        {/if}
+      </fieldset>
+
       <div class="actions">
         <button onclick={onClose}>Cancel</button>
         <button class="primary" onclick={save}>Save</button>
@@ -198,6 +257,15 @@
   }
   .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
   .row3 label { font-size: 0.75rem; }
+  .row2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .row2 label { font-size: 0.75rem; }
+  .test-btn {
+    align-self: flex-start; background: var(--bg-elevated);
+    border: 1px solid var(--bd-muted); color: var(--tx-lo);
+    padding: 0.3rem 0.7rem; border-radius: 5px; font-size: 0.78rem; cursor: pointer;
+  }
+  .test-btn:hover { color: var(--tx-hi); border-color: var(--bd-strong); }
+  input[type="range"] { padding: 0; cursor: pointer; accent-color: var(--ac); }
   .cal-grid {
     display: grid; grid-template-columns: 1.2rem repeat(4, 1fr);
     gap: 0.3rem; align-items: center;

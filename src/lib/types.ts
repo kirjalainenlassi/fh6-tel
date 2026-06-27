@@ -100,6 +100,17 @@ export interface AppSettings {
   mapDefaultZoom: number;
   mapDefaultCenter: [number, number];
   tiresVisible: boolean;
+
+  // ── Audio alerts ──────────────────────────────────────────────────────────
+  upshiftBeepEnabled: boolean;
+  upshiftThreshold: number;   // % of max RPM (0–100), default 95
+  upshiftRearm: number;       // % of max RPM (0–100), default 85
+  upshiftFreq: number;        // Hz, default 1800
+  upshiftDurationMs: number;  // ms, default 120
+  downshiftBeepEnabled: boolean;
+  downshiftFreq: number;      // Hz, default 1200
+  downshiftDurationMs: number; // ms, default 100
+  beepVolume: number;         // 0–1, default 0.8
 }
 
 export type DrivetrainLabel = 'FWD' | 'RWD' | 'AWD';

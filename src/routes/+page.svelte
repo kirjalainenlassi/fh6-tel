@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { isDesktop } from '$lib/ipc';
-  import { startTelemetryListener, replay } from '$lib/stores/telemetry';
+  import { startTelemetryListener, replay, displayPacket, rpmPercent } from '$lib/stores/telemetry';
   import { loadSettings, settings, saveSettings } from '$lib/stores/sessions';
+  import { playBeep } from '$lib/audio';
   import TopBar from '$lib/components/TopBar.svelte';
   import CompassBar from '$lib/components/CompassBar.svelte';
   import CenterPanel from '$lib/components/CenterPanel.svelte';
@@ -132,6 +133,36 @@
     if ($replay.active) {
       showSessions = false;
       viewerSession = null;
+    }
+  });
+
+  // ── Shift beeps ───────────────────────────────────────────────────────────
+  // Plain let (not $state) so reads/writes don't create reactive dependencies.
+  let upshiftArmed = true;
+  let prevGear = 0;
+
+  $effect(() => {
+    const p = $displayPacket;
+    const rpm = $rpmPercent;
+    if (!p || !p.isRaceOn || $replay.active) return;
+
+    if (s?.upshiftBeepEnabled) {
+      if (upshiftArmed && rpm >= s.upshiftThreshold) {
+        playBeep(s.upshiftFreq, s.upshiftDurationMs, s.beepVolume);
+        upshiftArmed = false;
+      } else if (!upshiftArmed && rpm < s.upshiftRearm) {
+        upshiftArmed = true;
+      }
+    }
+
+    if (s?.downshiftBeepEnabled) {
+      const gear = p.gear;
+      if (gear < prevGear && gear > 0 && prevGear > 0) {
+        playBeep(s.downshiftFreq, s.downshiftDurationMs, s.beepVolume);
+      }
+      prevGear = gear;
+    } else {
+      prevGear = p.gear;
     }
   });
 </script>
